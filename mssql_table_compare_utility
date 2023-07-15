@@ -1,0 +1,46 @@
+import pandas as pd
+import pyodbc
+
+# Connect to MSSQL database
+conn_str = 'DRIVER={SQL Server};SERVER=<server_name>;DATABASE=<database_name>;UID=<username>;PWD=<password>'
+conn = pyodbc.connect(conn_str)
+
+# Fetch data from the first table
+query1 = 'SELECT * FROM table1'
+df1 = pd.read_sql(query1, conn)
+
+# Fetch data from the second table
+query2 = 'SELECT * FROM table2'
+df2 = pd.read_sql(query2, conn)
+
+# Get the key column(s)
+key_columns = ['key_column1', 'key_column2']  # Replace with the actual key column names
+
+# Combine key columns with non-key columns for comparison
+all_columns = key_columns + ['non_key_column1', 'non_key_column2', 'non_key_column3', 'non_key_column4', 'non_key_column5']
+
+# Step 2: Rows present in table1 but missing in table2
+missing_in_table2 = pd.merge(df1, df2, on=key_columns, how='left', indicator=True)
+missing_in_table2 = missing_in_table2[missing_in_table2['_merge'] == 'left_only']
+
+# Step 3: Rows missing in table2
+missing_in_table1 = pd.merge(df2, df1, on=key_columns, how='left', indicator=True)
+missing_in_table1 = missing_in_table1[missing_in_table1['_merge'] == 'left_only']
+
+# Step 6: Rows with matching key columns but differences in non-key columns
+different_rows = pd.merge(df1, df2, on=key_columns, how='inner')
+
+# Compare non-key columns for differences
+diff_columns = ['non_key_column1', 'non_key_column2', 'non_key_column3', 'non_key_column4', 'non_key_column5']
+different_rows = different_rows[different_rows[diff_columns].notnull().any(axis=1)]
+different_rows = different_rows[different_rows[diff_columns].nunique(axis=1) > 1]
+
+# Print the results
+print("Rows missing in table2 based on key columns:")
+print(missing_in_table2)
+
+print("\nRows missing in table1 based on key columns:")
+print(missing_in_table1)
+
+print("\nRows with differences in non-key columns:")
+print(different_rows[all_columns])
